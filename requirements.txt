@@ -1,0 +1,54 @@
+# Multi-Agent Framework
+# Note: strands package needs to be installed from source or custom repository
+# strands-agents==1.0.0
+# strands-agents-tools==1.0.0
+
+# Alternative: Use swarm-py for multi-agent support
+swarm-py>=0.1.0
+
+# AWS and Boto3 for Bedrock
+boto3==1.34.0
+botocore==1.34.0
+
+# API Framework
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+websockets==12.0
+
+# HTTP Clients
+requests==2.31.0
+httpx==0.26.0
+
+# Data Validation
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# Environment Variables
+python-dotenv==1.0.0
+
+# Async Support
+asyncio==3.4.3
+aiofiles==23.2.1
+
+# Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+pytest-mock==3.12.0
+
+# Code Quality
+black==23.12.0
+flake8==7.0.0
+mypy==1.7.0
+
+# Utilities
+python-multipart==0.0.6
+email-validator==2.1.0
+
+# Logging and Monitoring
+structlog==24.1.0
+
+# Optional: OpenTelemetry for observability
+opentelemetry-api==1.22.0
+opentelemetry-sdk==1.22.0
+opentelemetry-exporter-otlp==1.22.0

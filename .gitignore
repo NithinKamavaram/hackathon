@@ -1,6 +1,37 @@
+# Virtual environments
 venv/
+env/
+.venv/
+
+# Python
 __pycache__/
+*.py[cod]
 *.pyc
+*$py.class
+.Python
+.mypy_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs
+logs/
+*.log
+
+# Environment variables
 .env
+.env.local
+.env.*.local
+
+# OS files
 .DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Project specific
 CLAUDE.md
