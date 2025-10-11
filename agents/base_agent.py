@@ -1,25 +1,32 @@
 """
 Base agent configuration and utilities
+Following Strands Agents SDK patterns and best practices
 """
 
-from strands import Agent
+from strands import Agent, tool
 from strands.models import BedrockModel
 import os
-from typing import Optional, Dict, Any
 import logging
+from typing import Optional, Dict, Any
+
+# Configure Strands logging as recommended
+logging.getLogger("strands").setLevel(logging.INFO)
+logging.basicConfig(
+    format="%(levelname)s | %(name)s | %(message)s",
+    handlers=[logging.StreamHandler()]
+)
 
 logger = logging.getLogger(__name__)
 
 
 class BaseAgentConfig:
-    """Base configuration for all CodeCollab agents"""
+    """Base configuration for all CodeCollab agents following Strands patterns"""
 
-    # Model configuration - using cross-region inference profile
-    MODEL_ID = "us.anthropic.claude-sonnet-4-20250514-v1:0"
+    # Model configuration - using Claude Sonnet as recommended
+    MODEL_ID = "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
     REGION = "us-west-2"
     TEMPERATURE = 0.3
     MAX_TOKENS = 4096
-    STREAMING = True
 
     # Agent behavior
     TIMEOUT_SECONDS = 300
@@ -27,13 +34,21 @@ class BaseAgentConfig:
 
     @staticmethod
     def create_model() -> BedrockModel:
-        """Create configured Bedrock model"""
+        """Create configured Bedrock model following Strands patterns"""
         return BedrockModel(
             model_id=BaseAgentConfig.MODEL_ID,
             region_name=BaseAgentConfig.REGION,
             temperature=BaseAgentConfig.TEMPERATURE,
-            max_tokens=BaseAgentConfig.MAX_TOKENS,
-            streaming=BaseAgentConfig.STREAMING
+            max_tokens=BaseAgentConfig.MAX_TOKENS
+        )
+
+    @staticmethod
+    def create_simple_agent(system_prompt: str, tools: list = None) -> Agent:
+        """Create a simple Strands agent with default configuration"""
+        return Agent(
+            system_prompt=system_prompt,
+            model=BaseAgentConfig.create_model(),
+            tools=tools or []
         )
 
 

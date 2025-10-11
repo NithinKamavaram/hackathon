@@ -1,7 +1,7 @@
 # Multi-Agent Framework
 # Note: strands package needs to be installed from source or custom repository
-# strands-agents==1.0.0
-# strands-agents-tools==1.0.0
+strands-agents==1.0.0
+strands-agents-tools==1.0.0
 
 # Alternative: Use swarm-py for multi-agent support
 swarm-py>=0.1.0

@@ -75,14 +75,14 @@ def print_result(result: dict):
     success = result.get('success', False)
     status_color = Colors.GREEN if success else Colors.RED
     status_icon = "✅" if success else "❌"
-    print(f"{status_icon} Status: {status_color}{success}{Colors.ENDC}")
+    print(f"{status_icon} Status: {status_color}{'SUCCESS' if success else 'FAILED'}{Colors.ENDC}")
 
     # Timing
-    exec_time = result.get('execution_time_ms', 0) / 1000
+    exec_time = result.get('execution_time_ms', result.get('latency_ms', 0)) / 1000
     print(f"⏱️  Time: {exec_time:.2f} seconds")
 
     # Tokens
-    tokens = result.get('tokens_used', 0)
+    tokens = result.get('tokens_used', result.get('total_tokens', 0))
     if tokens:
         print(f"🎫 Tokens: {tokens}")
 
@@ -91,22 +91,33 @@ def print_result(result: dict):
     if agents:
         print_agent_flow(agents)
 
+    # Decision
+    decision = result.get('final_decision', result.get('decision', ''))
+    if decision:
+        decision_color = Colors.GREEN if decision == 'COMPLETE' else Colors.YELLOW
+        print(f"\n🎯 Decision: {decision_color}{decision}{Colors.ENDC}")
+
     # Final result/code
-    print(f"\n{Colors.BOLD}📋 OUTPUT:{Colors.ENDC}")
+    print(f"\n{Colors.BOLD}📋 GENERATED CODE:{Colors.ENDC}")
     print(f"{Colors.CYAN}{'─'*80}{Colors.ENDC}")
 
-    final_result = result.get('final_result', 'No result available')
+    # Try to get code first, then final_result
+    code = result.get('code', result.get('final_result', 'No result available'))
 
     # If it's a dict (from mock), extract the actual result
-    if isinstance(final_result, dict):
-        final_result = final_result.get('final_result', str(final_result))
+    if isinstance(code, dict):
+        code = code.get('code', code.get('final_result', str(code)))
 
-    # Truncate if too long
-    if len(final_result) > 2000:
-        print(final_result[:2000])
-        print(f"\n{Colors.YELLOW}... (output truncated, showing first 2000 chars){Colors.ENDC}")
+    # Format code nicely
+    if isinstance(code, str) and code.strip():
+        # Truncate if too long
+        if len(code) > 2000:
+            print(code[:2000])
+            print(f"\n{Colors.YELLOW}... (output truncated, showing first 2000 chars){Colors.ENDC}")
+        else:
+            print(code)
     else:
-        print(final_result)
+        print("No code generated")
 
     print(f"{Colors.CYAN}{'─'*80}{Colors.ENDC}")
 
