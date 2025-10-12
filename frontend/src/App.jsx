@@ -16,11 +16,11 @@ function App() {
   const [currentTask, setCurrentTask] = useState(null);
   const [currentResult, setCurrentResult] = useState(null);
   const [agents, setAgents] = useState([
-    { name: 'RequirementsAgent', status: 'idle', activity: 'Ready', progress: 0 },
-    { name: 'ContextAgent', status: 'idle', activity: 'Ready', progress: 0 },
-    { name: 'BuilderAgent', status: 'idle', activity: 'Ready', progress: 0 },
-    { name: 'QualityAgent', status: 'idle', activity: 'Ready', progress: 0 },
-    { name: 'EscalationAgent', status: 'idle', activity: 'Ready', progress: 0 }
+    { name: 'RequirementsAgent', backendName: 'requirements_agent', status: 'idle', activity: 'Ready', progress: 0 },
+    { name: 'ContextAgent', backendName: 'context_agent', status: 'idle', activity: 'Ready', progress: 0 },
+    { name: 'BuilderAgent', backendName: 'builder_agent', status: 'idle', activity: 'Ready', progress: 0 },
+    { name: 'QualityAgent', backendName: 'quality_agent', status: 'idle', activity: 'Ready', progress: 0 },
+    { name: 'EscalationAgent', backendName: 'escalation_agent', status: 'idle', activity: 'Ready', progress: 0 }
   ]);
   const [systemStatus, setSystemStatus] = useState({
     status: 'loading',
@@ -120,23 +120,42 @@ function App() {
   };
 
   const updateAgentsFromResult = (result) => {
-    setTimeout(() => {
+    // Immediately update agents based on actual result
+    if (result.agent_sequence && result.agent_sequence.length > 0) {
       setAgents(prev => prev.map(agent => {
-        if (result.agent_sequence?.includes(agent.name)) {
-          return { ...agent, status: 'completed', activity: 'Complete', progress: 100 };
+        // Check if this agent was involved (check both name formats)
+        const wasInvolved = result.agent_sequence.includes(agent.name) ||
+                           result.agent_sequence.includes(agent.backendName);
+
+        if (wasInvolved) {
+          // Get agent output for activity message (try both name formats)
+          const agentOutput = result.agent_outputs?.[agent.name] ||
+                            result.agent_outputs?.[agent.backendName];
+          const activity = agentOutput?.handoff_message ||
+                          agentOutput?.response?.substring(0, 80) ||
+                          'Completed';
+
+          return {
+            ...agent,
+            status: 'completed',
+            activity: activity.substring(0, 50), // Truncate long messages
+            progress: 100
+          };
+        } else {
+          // Agent wasn't involved in this task
+          return { ...agent, status: 'idle', activity: 'Not involved', progress: 0 };
         }
-        return agent;
       }));
-    }, 5000);
+    }
   };
 
   const resetAgents = () => {
     setAgents([
-      { name: 'RequirementsAgent', status: 'idle', activity: 'Ready', progress: 0 },
-      { name: 'ContextAgent', status: 'idle', activity: 'Ready', progress: 0 },
-      { name: 'BuilderAgent', status: 'idle', activity: 'Ready', progress: 0 },
-      { name: 'QualityAgent', status: 'idle', activity: 'Ready', progress: 0 },
-      { name: 'EscalationAgent', status: 'idle', activity: 'Ready', progress: 0 }
+      { name: 'RequirementsAgent', backendName: 'requirements_agent', status: 'idle', activity: 'Ready', progress: 0 },
+      { name: 'ContextAgent', backendName: 'context_agent', status: 'idle', activity: 'Ready', progress: 0 },
+      { name: 'BuilderAgent', backendName: 'builder_agent', status: 'idle', activity: 'Ready', progress: 0 },
+      { name: 'QualityAgent', backendName: 'quality_agent', status: 'idle', activity: 'Ready', progress: 0 },
+      { name: 'EscalationAgent', backendName: 'escalation_agent', status: 'idle', activity: 'Ready', progress: 0 }
     ]);
   };
 

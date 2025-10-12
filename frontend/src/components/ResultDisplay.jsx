@@ -18,6 +18,21 @@ const ResultDisplay = ({ result }) => {
     }
   };
 
+  // Format final result by removing code blocks for cleaner display
+  const formatFinalMessage = (text) => {
+    if (!text || typeof text !== 'string') return '';
+
+    // Remove markdown code blocks
+    let formatted = text.replace(/```[\s\S]*?```/g, '[Code shown above]');
+
+    // Truncate if too long
+    if (formatted.length > 1000) {
+      formatted = formatted.substring(0, 1000) + '...';
+    }
+
+    return formatted;
+  };
+
   return (
     <div className="result-display">
       <h2>Task Results</h2>
@@ -131,9 +146,11 @@ const ResultDisplay = ({ result }) => {
       {/* Final Result/Message */}
       {result.final_result && (
         <div className="result-section">
-          <h3>Final Message</h3>
+          <h3>Summary</h3>
           <div className="final-message">
-            {result.final_result}
+            <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>
+              {formatFinalMessage(result.final_result)}
+            </pre>
           </div>
         </div>
       )}
