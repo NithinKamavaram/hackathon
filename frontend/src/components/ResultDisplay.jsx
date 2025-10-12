@@ -18,18 +18,14 @@ const ResultDisplay = ({ result }) => {
     }
   };
 
-  // Format final result by removing code blocks for cleaner display
+  // Format final result - show complete output, only remove duplicate code blocks
   const formatFinalMessage = (text) => {
     if (!text || typeof text !== 'string') return '';
 
-    // Remove markdown code blocks
+    // Remove markdown code blocks since they're shown separately above
     let formatted = text.replace(/```[\s\S]*?```/g, '[Code shown above]');
 
-    // Truncate if too long
-    if (formatted.length > 1000) {
-      formatted = formatted.substring(0, 1000) + '...';
-    }
-
+    // Return full text without truncation
     return formatted;
   };
 
@@ -146,7 +142,7 @@ const ResultDisplay = ({ result }) => {
       {/* Final Result/Message */}
       {result.final_result && (
         <div className="result-section">
-          <h3>Summary</h3>
+          <h3>Final Output</h3>
           <div className="final-message">
             <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>
               {formatFinalMessage(result.final_result)}
