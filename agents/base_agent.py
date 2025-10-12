@@ -22,8 +22,8 @@ logger = logging.getLogger(__name__)
 class BaseAgentConfig:
     """Base configuration for all CodeCollab agents following Strands patterns"""
 
-    # Model configuration - using Claude Sonnet as recommended
-    MODEL_ID = "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
+    # Model configuration - using Claude Sonnet 4 (latest)
+    MODEL_ID = "anthropic.claude-sonnet-4-20250514-v1:0"
     REGION = "us-west-2"
     TEMPERATURE = 0.3
     MAX_TOKENS = 4096

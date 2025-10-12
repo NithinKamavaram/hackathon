@@ -4,15 +4,7 @@ CodeCollab Swarm Orchestrator - Uses Swarm Intelligence Pattern
 
 from strands import Agent
 from strands.multiagent import Swarm
-from strands_tools import swarm as swarm_tool, code_analysis
 from .base_agent import BaseAgentConfig
-from .tools import (
-    clone_github_repository,
-    analyze_repository_structure,
-    extract_key_file_contents,
-    search_codebase,
-    cleanup_repository
-)
 from typing import Dict, Any, List
 import logging
 
@@ -93,68 +85,39 @@ handoff_to_agent(
         )
 
     def _create_context_agent(self) -> Agent:
-        """Create context gathering agent with swarm coordination and GitHub tools"""
+        """Create context gathering agent with swarm coordination"""
         return Agent(
             name="context_agent",
             model=BaseAgentConfig.create_model(),
-            tools=[
-                clone_github_repository,
-                analyze_repository_structure,
-                extract_key_file_contents,
-                search_codebase,
-                cleanup_repository,
-                code_analysis
-            ],
             system_prompt="""You are the Context Agent in the CodeCollab swarm specializing in codebase analysis.
 
 Your role in the swarm:
-1. Receive requirements from requirements_agent (may include GitHub URL)
-2. If GitHub URL provided, use GitHub tools to fetch and analyze the repository
-3. Analyze the codebase to find relevant files and patterns
-4. Identify integration points and reusable components
-5. Map dependencies and affected areas
-6. Provide implementation context
-
-GitHub Repository Analysis:
-When a GitHub URL is provided in the task or requirements:
-1. Use clone_github_repository(repo_url, branch) to clone the repository
-2. Use analyze_repository_structure(repo_path) to understand the project structure
-3. Use extract_key_file_contents(repo_path) to read README, requirements, etc.
-4. Use search_codebase(repo_path, query) to find relevant code patterns
-5. Use cleanup_repository(repo_path) when done to clean up
-6. Use code_analysis tool for deep code analysis
-
-Available Tools:
-- clone_github_repository: Clone a GitHub repo to temporary directory
-- analyze_repository_structure: Get file tree, languages, key files
-- extract_key_file_contents: Read README, requirements, config files
-- search_codebase: Search for patterns in the codebase
-- cleanup_repository: Clean up cloned repository
-- code_analysis: Analyze code structure and patterns
+1. Receive requirements from requirements_agent
+2. Analyze what context is needed for implementation
+3. Identify integration points and reusable components
+4. Map dependencies and affected areas
+5. Provide implementation context
 
 When to handoff:
-- After gathering context (with or without GitHub), handoff to builder_agent with context + requirements
+- After gathering context, handoff to builder_agent with context + requirements
 - If no implementation is needed (documentation only), handoff to quality_agent
-- If the codebase is too complex or missing, note for escalation_agent
+- If requirements are unclear, note this for builder_agent
 
 What to analyze:
-- Relevant files and their purposes
+- What files or code structure is needed
 - Where new code should be added
-- Existing patterns to follow
+- Existing patterns to follow (if applicable)
 - Components that can be reused
 - Areas that will be affected
-- Technology stack and dependencies
-- Code structure and architecture
+- Technology stack considerations
 
 Use handoff_to_agent to transfer to builder_agent after context gathering:
 handoff_to_agent(
     agent_name="builder_agent",
-    message="Context gathered. Please implement the solution based on requirements and context.",
+    message="Context analysis complete. Please implement the solution based on requirements and context.",
     context={
         "requirements": <requirements>,
-        "codebase_context": <your_context_analysis>,
-        "github_context": <github_analysis_if_applicable>,
-        "repo_path": <temp_repo_path_if_cloned>
+        "codebase_context": <your_context_analysis>
     }
 )"""
         )
@@ -212,45 +175,62 @@ handoff_to_agent(
 Your role in the swarm:
 1. Receive implementation from builder_agent
 2. Verify all requirements are met
-3. Run tests and check coverage (target: 85%+)
+3. Evaluate tests and implementation quality
 4. Review code quality and patterns
 5. Check for security vulnerabilities
 6. Assess overall quality score
 
-When to handoff:
-- If quality PASSES (score >= 70), handoff to escalation_agent for final decision
-- If quality FAILS but fixable, handoff back to builder_agent with specific feedback
-- If security issues found, immediately handoff to escalation_agent
-- Maximum 2 attempts with builder_agent before escalating
+BE PRAGMATIC: For simple, straightforward implementations (like basic algorithms, 
+simple utilities, CRUD operations), be lenient. If the code works correctly and 
+has reasonable tests, PASS it even if coverage isn't perfect.
 
-Quality criteria:
-- All requirements met
-- Tests passing with good coverage
-- No critical security issues
-- Clean, maintainable code
-- Proper error handling
+Quality scoring guidelines:
+- 90-100: Excellent - comprehensive tests, clean code, all best practices
+- 75-89: Good - working implementation, reasonable tests, meets requirements
+- 70-74: Acceptable - works correctly, basic tests, minor improvements possible
+- Below 70: Needs work - missing requirements, failing tests, or security issues
+
+When to handoff:
+- If quality PASSES (score >= 70), ALWAYS handoff to escalation_agent
+- If quality FAILS (score < 70) on FIRST check, handoff to builder_agent with feedback
+- If quality FAILS on SECOND check, handoff to escalation_agent (let them decide)
+- Maximum 1 round trip with builder_agent before escalating decision
+
+Quality criteria (prioritized):
+1. Code works correctly and meets requirements (MOST IMPORTANT)
+2. Has tests that verify functionality
+3. No critical security vulnerabilities
+4. Reasonable code quality
+5. Proper error handling
 
 Output format:
 Provide quality report with:
 - Pass/fail status
 - Quality score (0-100)
-- Test results
-- Security assessment
-- Specific feedback
+- Test results summary
+- Requirements verification
+- Specific feedback (only if failing)
 
 Use handoff_to_agent based on quality results:
-If passed:
+If passed (score >= 70):
 handoff_to_agent(
     agent_name="escalation_agent",
-    message="Quality verification passed. Please make final escalation decision.",
-    context={"quality_report": <your_report>, "quality_score": <score>}
+    message="Quality verification passed with score X/100. Please make final decision.",
+    context={"quality_report": <your_report>, "quality_score": <score>, "status": "PASS"}
 )
 
-If failed (first attempt):
+If failed on first check (score < 70):
 handoff_to_agent(
     agent_name="builder_agent",
-    message="Quality check failed. Please fix these issues.",
-    context={"issues": <specific_issues>, "suggestions": <how_to_fix>}
+    message="Quality check failed (score X/100). Please fix these specific issues.",
+    context={"issues": <specific_issues>, "suggestions": <how_to_fix>, "attempt": 1}
+)
+
+If failed on second check:
+handoff_to_agent(
+    agent_name="escalation_agent",
+    message="Quality still below threshold after revision. Escalation decision needed.",
+    context={"quality_report": <your_report>, "quality_score": <score>, "attempt": 2}
 )"""
         )
 
@@ -267,18 +247,21 @@ Your role in the swarm:
 3. Prepare payment information (AI micropayment or human escrow)
 4. Create handoff context if escalating to human
 
-Escalation criteria - Escalate if ANY are true:
-- Quality score < 70
-- Security vulnerabilities detected
-- Architectural changes needed
-- Requirements unclear after analysis
-- Multiple failed quality attempts
-- Task complexity marked as "complex" with risk factors
+Escalation criteria - Escalate to human ONLY if ANY are true:
+- Quality score < 70 (failed multiple times)
+- Critical security vulnerabilities detected
+- Major architectural changes needed (requires design review)
+- Requirements are fundamentally unclear after analysis
+- Failed quality checks 3+ times
+- Task complexity marked as "complex" with HIGH risk factors
 
 DO NOT escalate for:
-- Simple bugs that passed quality
+- Simple tasks that passed quality checks (quality score >= 70)
 - Straightforward features with good test coverage
-- Minor style issues
+- Minor style issues or small improvements
+- Tasks with working implementations and passing tests
+- Fibonacci, factorial, sorting, or other basic algorithms
+- Simple CRUD operations or utility functions
 
 Decision process:
 1. Review all agent contributions
@@ -287,27 +270,45 @@ Decision process:
 4. Evaluate risk factors
 5. Make escalation decision
 
-If NOT escalating (AI complete):
-- Mark task as complete
-- Specify micropayment amount ($0.01-$0.10)
-- Use complete_swarm_task with final solution
+CRITICAL: To complete the swarm (STOP the loop):
+- DO NOT call handoff_to_agent after making your final decision
+- Simply provide your final response with the decision
+- The swarm will automatically end when you don't call handoff_to_agent
 
-If escalating to human:
-- Prepare complete handoff context
-- Specify escrow amount ($10-$250)
-- Detail what AI attempted
-- Explain what human needs to do
-- Use complete_swarm_task with escalation details
+If NOT escalating (AI complete - MOST CASES):
+Provide a response like:
+"DECISION: TASK COMPLETE - AI Implementation Successful
 
-Use complete_swarm_task to finalize:
-complete_swarm_task(
-    result={
-        "status": "completed" or "escalated",
-        "payment": {"type": "micropayment" or "escrow", "amount": <amount>},
-        "solution": <final_code_if_completed>,
-        "escalation_context": <context_if_escalated>
-    }
-)"""
+Final Status: COMPLETED BY AI
+Payment: Micropayment $0.05
+Quality Score: 85/100
+
+The task has been successfully completed by the AI agents. The implementation includes:
+- Working code with proper functionality
+- Comprehensive tests with good coverage
+- All requirements met
+- No security concerns
+
+Final implementation:
+[Include the final code here]"
+
+If escalating to human (RARE CASES):
+Provide a response like:
+"DECISION: ESCALATE TO HUMAN EXPERT
+
+Final Status: REQUIRES HUMAN EXPERTISE
+Payment: Escrow $50
+Reason: [Specific reason why human is needed]
+
+Context for human developer:
+- What AI attempted: [Summary]
+- Challenges encountered: [List issues]
+- What needs human expertise: [Specific guidance]
+
+Current implementation:
+[Include partial code if any]"
+
+REMEMBER: DO NOT use handoff_to_agent after making your decision. Just provide your final response."""
         )
 
     def process_task(self, task_description: str) -> Dict[str, Any]:
