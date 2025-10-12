@@ -1,40 +1,45 @@
 /**
- * Result display component showing generated code and outputs
+ * Result display component showing generated code, payment info, and outputs
  */
 
-import React, { useState } from 'react';
-import { Copy, Check } from 'lucide-react';
+import { useState } from 'react';
+import { TaskResult } from '../services/api';
 
-const ResultDisplay = ({ result }) => {
+interface ResultDisplayProps {
+  result: TaskResult | null;
+  onPaymentComplete?: (transactionHash: string) => void;
+}
+
+export default function ResultDisplay({ result }: ResultDisplayProps) {
   const [copied, setCopied] = useState(false);
 
   if (!result) return null;
 
-  const handleCopy = () => {
+  const handleCopy = async () => {
     if (result.code) {
-      navigator.clipboard.writeText(result.code);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      try {
+        await navigator.clipboard.writeText(result.code);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (err) {
+        console.error('Failed to copy:', err);
+      }
     }
   };
 
-  // Format final result - show complete output, only remove duplicate code blocks
-  const formatFinalMessage = (text) => {
+  const formatFinalMessage = (text: string | undefined) => {
     if (!text || typeof text !== 'string') return '';
-
-    // Remove markdown code blocks since they're shown separately above
+    // Remove markdown code blocks since they're shown separately
     let formatted = text.replace(/```[\s\S]*?```/g, '[Code shown above]');
-
-    // Return full text without truncation
     return formatted;
   };
 
   return (
     <div className="result-display">
-      <h2>Task Results</h2>
+      <h2>📊 Task Results</h2>
       
       {/* Final Decision Banner */}
-      <div className={`decision-banner decision-${result.final_decision?.toLowerCase()}`}>
+      <div className={`decision-banner decision-${result.final_decision?.toLowerCase() || 'unknown'}`}>
         {result.final_decision === 'COMPLETE' ? (
           <>
             <span className="decision-icon">✓</span>
@@ -55,22 +60,22 @@ const ResultDisplay = ({ result }) => {
 
       {/* Task Description */}
       <div className="result-section">
-        <h3>Task Description</h3>
+        <h3>📝 Task Description</h3>
         <p className="task-description-text">{result.task_description}</p>
       </div>
 
       {/* Agent Sequence */}
       {result.agent_sequence && result.agent_sequence.length > 0 && (
         <div className="result-section">
-          <h3>Agent Pipeline</h3>
+          <h3>🔀 Agent Pipeline</h3>
           <div className="agent-pipeline">
             {result.agent_sequence.map((agent, idx) => (
-              <React.Fragment key={idx}>
+              <span key={idx}>
                 <span className="pipeline-agent">{agent}</span>
                 {idx < result.agent_sequence.length - 1 && (
-                  <span className="pipeline-arrow">→</span>
+                  <span className="pipeline-arrow"> → </span>
                 )}
-              </React.Fragment>
+              </span>
             ))}
           </div>
         </div>
@@ -80,10 +85,9 @@ const ResultDisplay = ({ result }) => {
       {result.code && (
         <div className="result-section">
           <div className="code-header">
-            <h3>Generated Code</h3>
+            <h3>💻 Generated Code</h3>
             <button onClick={handleCopy} className="copy-button">
-              {copied ? <Check size={16} /> : <Copy size={16} />}
-              {copied ? 'Copied!' : 'Copy'}
+              {copied ? '✓ Copied!' : '📋 Copy Code'}
             </button>
           </div>
           <pre className="code-block">
@@ -92,41 +96,33 @@ const ResultDisplay = ({ result }) => {
         </div>
       )}
 
-      {/* Agent Outputs */}
-      {result.agent_outputs && Object.keys(result.agent_outputs).length > 0 && (
-        <div className="result-section">
-          <h3>Agent Contributions</h3>
-          <div className="agent-outputs">
-            {Object.entries(result.agent_outputs).map(([agentName, output]) => (
-              <div key={agentName} className="agent-output-card">
-                <div className="agent-output-header">
-                  <strong>{agentName}</strong>
-                </div>
-                <div className="agent-output-content">
-                  {output.response && (
-                    <p className="output-response">{output.response}</p>
-                  )}
-                  {output.handoff_message && (
-                    <p className="output-handoff">
-                      <em>Handoff: {output.handoff_message}</em>
-                    </p>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Payment Information */}
       {result.payment && (
-        <div className="result-section">
+        <div className="result-section payment-section">
           <h3>💰 Payment Information</h3>
+          <div style={{ 
+            background: 'rgba(16, 185, 129, 0.1)', 
+            border: '2px solid var(--success-color)',
+            borderRadius: '8px',
+            padding: '1rem',
+            marginBottom: '1rem',
+            textAlign: 'center'
+          }}>
+            <p style={{ margin: 0, color: 'var(--success-color)', fontWeight: 600, fontSize: '1rem' }}>
+              ✅ Automatic payment will be processed via SBC gasless transaction
+            </p>
+            <p style={{ margin: '0.5rem 0 0 0', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+              MetaMask will prompt you to sign the transaction in 1 second...
+            </p>
+          </div>
           <div className="payment-summary">
             <div className="payment-amount">
               <span className="payment-label">AI Micropayment:</span>
-              <span className="payment-value">${result.payment.amount.toFixed(2)} {result.payment.currency}</span>
+              <span className="payment-value">
+                ${result.payment.amount.toFixed(2)} SBC
+              </span>
             </div>
+            
             {result.payment.breakdown && (
               <div className="payment-breakdown">
                 <h4>Breakdown:</h4>
@@ -141,19 +137,29 @@ const ResultDisplay = ({ result }) => {
                   </div>
                   <div className="breakdown-item">
                     <span className="breakdown-label">Quality Score:</span>
-                    <span className="breakdown-value">{result.payment.breakdown.quality_score}/100 ({result.payment.breakdown.quality_tier})</span>
+                    <span className="breakdown-value">
+                      {result.payment.breakdown.quality_score}/100 ({result.payment.breakdown.quality_tier})
+                    </span>
                   </div>
                   <div className="breakdown-item">
-                    <span className="breakdown-label">Quality Bonus:</span>
+                    <span className="breakdown-label">Quality Multiplier:</span>
                     <span className="breakdown-value">×{result.payment.breakdown.quality_multiplier}</span>
                   </div>
                   <div className="breakdown-item">
-                    <span className="breakdown-label">Speed Bonus:</span>
-                    <span className="breakdown-value">×{result.payment.breakdown.time_multiplier} ({result.payment.breakdown.time_tier})</span>
+                    <span className="breakdown-label">Speed Tier:</span>
+                    <span className="breakdown-value">
+                      {result.payment.breakdown.time_tier} (×{result.payment.breakdown.time_multiplier})
+                    </span>
+                  </div>
+                  <div className="breakdown-item">
+                    <span className="breakdown-label">Execution Time:</span>
+                    <span className="breakdown-value">{result.payment.breakdown.execution_time_sec.toFixed(2)}s</span>
                   </div>
                   <div className="breakdown-item">
                     <span className="breakdown-label">Token Cost:</span>
-                    <span className="breakdown-value">${result.payment.breakdown.token_cost.toFixed(4)} ({result.payment.breakdown.tokens_used.toLocaleString()} tokens)</span>
+                    <span className="breakdown-value">
+                      ${result.payment.breakdown.token_cost.toFixed(4)} ({result.payment.breakdown.tokens_used.toLocaleString()} tokens)
+                    </span>
                   </div>
                   <div className="breakdown-item">
                     <span className="breakdown-label">Code Lines:</span>
@@ -168,7 +174,7 @@ const ResultDisplay = ({ result }) => {
 
       {/* Execution Metrics */}
       <div className="result-section">
-        <h3>Execution Metrics</h3>
+        <h3>⏱️ Execution Metrics</h3>
         <div className="metrics-grid">
           <div className="metric-item">
             <span className="metric-label">Execution Time</span>
@@ -176,7 +182,7 @@ const ResultDisplay = ({ result }) => {
           </div>
           <div className="metric-item">
             <span className="metric-label">Tokens Used</span>
-            <span className="metric-value">{result.tokens_used || 0}</span>
+            <span className="metric-value">{result.total_tokens || result.tokens_used || 0}</span>
           </div>
           {result.agent_sequence && (
             <div className="metric-item">
@@ -187,10 +193,36 @@ const ResultDisplay = ({ result }) => {
         </div>
       </div>
 
+      {/* Agent Contributions */}
+      {result.agent_outputs && Object.keys(result.agent_outputs).length > 0 && (
+        <div className="result-section">
+          <h3>🤝 Agent Contributions</h3>
+          <div className="agent-outputs">
+            {Object.entries(result.agent_outputs).map(([agentName, output]) => (
+              <div key={agentName} className="agent-output-card">
+                <div className="agent-output-header">
+                  <strong>{agentName}</strong>
+                </div>
+                <div className="agent-output-content">
+                  {output.response && (
+                    <p className="output-response">{output.response}</p>
+                  )}
+                  {output.handoff_message && (
+                    <p className="output-handoff">
+                      <em>→ Handoff: {output.handoff_message}</em>
+                    </p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Final Result/Message */}
       {result.final_result && (
         <div className="result-section">
-          <h3>Final Output</h3>
+          <h3>📄 Final Output</h3>
           <div className="final-message">
             <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>
               {formatFinalMessage(result.final_result)}
@@ -202,7 +234,7 @@ const ResultDisplay = ({ result }) => {
       {/* Error Display */}
       {result.error && (
         <div className="result-section error-section">
-          <h3>Error</h3>
+          <h3>❌ Error</h3>
           <div className="error-content">
             {result.error}
           </div>
@@ -210,6 +242,5 @@ const ResultDisplay = ({ result }) => {
       )}
     </div>
   );
-};
+}
 
-export default ResultDisplay;
