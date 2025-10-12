@@ -6,7 +6,7 @@ Built for **Hack Midwest 2025** | [Demo Video](#) | [Architecture Docs](./COMPLE
  
 ---
 ## For quick demo on project flow please refer below URL
-<iframe>https://www.youtube.com/watch?v=op_7X8sIdsE</iframe>iframe>
+<iframe>https://www.youtube.com/watch?v=op_7X8sIdsE</iframe>
 
 ## 🎯 What It Does
  
