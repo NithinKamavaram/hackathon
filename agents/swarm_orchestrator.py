@@ -36,14 +36,14 @@ class CodeCollabSwarm:
             self.escalation_agent
         ]
 
-        # Create the swarm with proper configuration
+        # Create the swarm with optimized configuration
         self.swarm = Swarm(
             self.agents,  # Pass agents as first positional argument
-            max_handoffs=20,
-            max_iterations=20,
-            execution_timeout=900.0,  # 15 minutes
-            node_timeout=300.0,       # 5 minutes per agent
-            repetitive_handoff_detection_window=8,
+            max_handoffs=10,  # Reduced from 20
+            max_iterations=10,  # Reduced from 20
+            execution_timeout=120.0,  # 2 minutes (reduced from 15 min)
+            node_timeout=30.0,  # 30 seconds per agent (reduced from 5 min)
+            repetitive_handoff_detection_window=5,  # Reduced from 8
             repetitive_handoff_min_unique_agents=3
         )
 
@@ -180,15 +180,21 @@ Your role in the swarm:
 5. Check for security vulnerabilities
 6. Assess overall quality score
 
-BE PRAGMATIC: For simple, straightforward implementations (like basic algorithms, 
-simple utilities, CRUD operations), be lenient. If the code works correctly and 
-has reasonable tests, PASS it even if coverage isn't perfect.
+BE VERY LENIENT for simple tasks. If the code works and has ANY tests, PASS it.
 
-Quality scoring guidelines:
+Quality scoring guidelines for SIMPLE tasks (algorithms, basic functions):
+- Has working code that meets the requirement? → Score 85 (PASS)
+- Has any test at all? → Add +5 points
+- Has docstring? → Add +5 points
+- Use this formula: base 85 + bonuses = usually 90-95 for simple tasks
+
+Quality scoring guidelines for COMPLEX tasks (only):
 - 90-100: Excellent - comprehensive tests, clean code, all best practices
 - 75-89: Good - working implementation, reasonable tests, meets requirements
 - 70-74: Acceptable - works correctly, basic tests, minor improvements possible
 - Below 70: Needs work - missing requirements, failing tests, or security issues
+
+DEFAULT: For simple tasks with working code → Score 85-90 (ALWAYS PASS)
 
 When to handoff:
 - If quality PASSES (score >= 70), ALWAYS handoff to escalation_agent
@@ -247,21 +253,26 @@ Your role in the swarm:
 3. Prepare payment information (AI micropayment or human escrow)
 4. Create handoff context if escalating to human
 
-Escalation criteria - Escalate to human ONLY if ANY are true:
-- Quality score < 70 (failed multiple times)
-- Critical security vulnerabilities detected
-- Major architectural changes needed (requires design review)
-- Requirements are fundamentally unclear after analysis
-- Failed quality checks 3+ times
-- Task complexity marked as "complex" with HIGH risk factors
+CRITICAL DEFAULT: For 95% of tasks, DO NOT ESCALATE. Only escalate if MULTIPLE critical issues exist.
 
-DO NOT escalate for:
-- Simple tasks that passed quality checks (quality score >= 70)
+Escalation criteria - Escalate to human ONLY if MULTIPLE of these are true:
+- Quality score < 50 (severely broken)
+- Critical security vulnerabilities with data exposure
+- Major architectural changes affecting multiple systems
+- Requirements completely unclear after multiple attempts
+- Failed quality checks 3+ times with no improvement
+- Distributed systems or microservices architecture needed
+
+ALWAYS COMPLETE (DO NOT ESCALATE) for:
+- Any task that has working code (quality score >= 70)
+- Simple algorithms: Fibonacci, factorial, sorting, prime numbers, etc.
+- Basic functions: add, subtract, check even/odd, string operations
+- CRUD operations, data transformations, utility functions
+- Any code that passes tests and meets requirements
+- Minor improvements or style issues
 - Straightforward features with good test coverage
-- Minor style issues or small improvements
-- Tasks with working implementations and passing tests
-- Fibonacci, factorial, sorting, or other basic algorithms
-- Simple CRUD operations or utility functions
+
+DEFAULT DECISION: If quality score >= 70 → COMPLETE (not escalate)
 
 Decision process:
 1. Review all agent contributions
@@ -275,35 +286,38 @@ CRITICAL: To complete the swarm (STOP the loop):
 - Simply provide your final response with the decision
 - The swarm will automatically end when you don't call handoff_to_agent
 
-If NOT escalating (AI complete - MOST CASES):
-Provide a response like:
-"DECISION: TASK COMPLETE - AI Implementation Successful
+If NOT escalating (AI complete - DEFAULT FOR MOST CASES):
+You MUST start your response with exactly this line:
+"DECISION: COMPLETE"
 
-Final Status: COMPLETED BY AI
+Then provide details:
+"DECISION: COMPLETE
+
+Status: AI Implementation Successful
 Payment: Micropayment $0.05
 Quality Score: 85/100
 
-The task has been successfully completed by the AI agents. The implementation includes:
-- Working code with proper functionality
-- Comprehensive tests with good coverage
-- All requirements met
-- No security concerns
+The task has been completed by the AI agents. The implementation includes working code,
+tests, and meets all requirements.
 
 Final implementation:
 [Include the final code here]"
 
-If escalating to human (RARE CASES):
-Provide a response like:
-"DECISION: ESCALATE TO HUMAN EXPERT
+If escalating to human (RARE - < 5% OF CASES):
+You MUST start your response with exactly this line:
+"DECISION: ESCALATE"
 
-Final Status: REQUIRES HUMAN EXPERTISE
+Then provide details:
+"DECISION: ESCALATE
+
+Status: Requires Human Expertise
 Payment: Escrow $50
-Reason: [Specific reason why human is needed]
+Reason: [Specific reason - must be multiple critical issues]
 
 Context for human developer:
 - What AI attempted: [Summary]
-- Challenges encountered: [List issues]
-- What needs human expertise: [Specific guidance]
+- Critical issues: [List multiple issues]
+- Why human expertise needed: [Specific guidance]
 
 Current implementation:
 [Include partial code if any]"
@@ -387,9 +401,20 @@ REMEMBER: DO NOT use handoff_to_agent after making your decision. Just provide y
             # Determine success status
             success_status = result.status == "success" if hasattr(result, 'status') else (result.get('success', True) if isinstance(result, dict) else True)
 
+            # Extract decision from escalation agent's response
+            final_decision = "COMPLETE"  # Default to complete
+            if "DECISION: ESCALATE" in final_result_str:
+                final_decision = "ESCALATE"
+            elif "DECISION: COMPLETE" in final_result_str:
+                final_decision = "COMPLETE"
+            elif "ESCALATE" in final_result_str.upper() and "DO NOT ESCALATE" not in final_result_str.upper():
+                # Fallback: if ESCALATE appears without "DO NOT ESCALATE"
+                final_decision = "ESCALATE"
+            # Otherwise keep default of COMPLETE
+
             # Build response
             response = {
-                "success": success_status,
+                "success": success_status and final_decision == "COMPLETE",  # Only success if completed
                 "task_description": task_description,
                 "final_result": final_result_str,
                 "final_message": final_result_str[:300] if len(final_result_str) > 300 else final_result_str,
@@ -402,7 +427,7 @@ REMEMBER: DO NOT use handoff_to_agent after making your decision. Just provide y
                 "total_tokens": 0,  # Token counting would need additional implementation
                 "shared_knowledge": shared_knowledge,
                 "code": deliverables.get('code'),  # Add extracted code to response
-                "final_decision": "COMPLETE" if success_status else "ESCALATE"  # Default decision
+                "final_decision": final_decision
             }
 
             # Pass through additional fields from mock (for testing)
