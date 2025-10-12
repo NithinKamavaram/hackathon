@@ -118,6 +118,54 @@ const ResultDisplay = ({ result }) => {
         </div>
       )}
 
+      {/* Payment Information */}
+      {result.payment && (
+        <div className="result-section">
+          <h3>💰 Payment Information</h3>
+          <div className="payment-summary">
+            <div className="payment-amount">
+              <span className="payment-label">AI Micropayment:</span>
+              <span className="payment-value">${result.payment.amount.toFixed(2)} {result.payment.currency}</span>
+            </div>
+            {result.payment.breakdown && (
+              <div className="payment-breakdown">
+                <h4>Breakdown:</h4>
+                <div className="breakdown-grid">
+                  <div className="breakdown-item">
+                    <span className="breakdown-label">Complexity:</span>
+                    <span className="breakdown-value">{result.payment.breakdown.complexity}</span>
+                  </div>
+                  <div className="breakdown-item">
+                    <span className="breakdown-label">Base Price:</span>
+                    <span className="breakdown-value">${result.payment.breakdown.base_price.toFixed(2)}</span>
+                  </div>
+                  <div className="breakdown-item">
+                    <span className="breakdown-label">Quality Score:</span>
+                    <span className="breakdown-value">{result.payment.breakdown.quality_score}/100 ({result.payment.breakdown.quality_tier})</span>
+                  </div>
+                  <div className="breakdown-item">
+                    <span className="breakdown-label">Quality Bonus:</span>
+                    <span className="breakdown-value">×{result.payment.breakdown.quality_multiplier}</span>
+                  </div>
+                  <div className="breakdown-item">
+                    <span className="breakdown-label">Speed Bonus:</span>
+                    <span className="breakdown-value">×{result.payment.breakdown.time_multiplier} ({result.payment.breakdown.time_tier})</span>
+                  </div>
+                  <div className="breakdown-item">
+                    <span className="breakdown-label">Token Cost:</span>
+                    <span className="breakdown-value">${result.payment.breakdown.token_cost.toFixed(4)} ({result.payment.breakdown.tokens_used.toLocaleString()} tokens)</span>
+                  </div>
+                  <div className="breakdown-item">
+                    <span className="breakdown-label">Code Lines:</span>
+                    <span className="breakdown-value">{result.payment.breakdown.code_lines}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Execution Metrics */}
       <div className="result-section">
         <h3>Execution Metrics</h3>

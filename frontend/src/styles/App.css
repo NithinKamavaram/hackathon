@@ -658,6 +658,74 @@ textarea.form-control {
   line-height: 1.6;
 }
 
+/* Payment Information */
+.payment-summary {
+  background: linear-gradient(135deg, #f0fdf4 0%, #d1fae5 100%);
+  border: 2px solid #10b981;
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.payment-amount {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background: white;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.payment-label {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.payment-value {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #059669;
+}
+
+.payment-breakdown h4 {
+  color: #059669;
+  margin-bottom: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.breakdown-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 12px;
+  padding: 12px;
+  background: white;
+  border-radius: 8px;
+}
+
+.breakdown-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: #f9fafb;
+  border-radius: 6px;
+  border-left: 3px solid #10b981;
+}
+
+.breakdown-label {
+  color: #6b7280;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.breakdown-value {
+  color: #1f2937;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .code-block {
@@ -675,5 +743,15 @@ textarea.form-control {
 
   .pipeline-arrow {
     transform: rotate(90deg);
+  }
+
+  .breakdown-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .payment-amount {
+    flex-direction: column;
+    gap: 8px;
+    text-align: center;
   }
 }
