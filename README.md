@@ -152,7 +152,7 @@ python simple_api_server.py
  
 ```bash
 # Navigate to frontend directory
-cd my-app
+cd frontend
  
 # Install dependencies
 npm install
