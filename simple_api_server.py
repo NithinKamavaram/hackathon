@@ -127,7 +127,8 @@ class SwarmAPIHandler(BaseHTTPRequestHandler):
                         "code": result.get("code"),
                         "final_decision": result.get("final_decision", "COMPLETE"),
                         "execution_time_ms": result.get("execution_time_ms", 2500),
-                        "tokens_used": result.get("tokens_used", 500)
+                        "tokens_used": result.get("tokens_used", 500),
+                        "payment": result.get("payment", {"amount": 0.05, "currency": "USD"})
                     }
                 else:
                     # Mock response

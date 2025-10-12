@@ -5,8 +5,10 @@ CodeCollab Swarm Orchestrator - Uses Swarm Intelligence Pattern
 from strands import Agent
 from strands.multiagent import Swarm
 from .base_agent import BaseAgentConfig
+from .payment_calculator import calculate_task_payment
 from typing import Dict, Any, List
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -129,7 +131,7 @@ REQUIRED Format (MUST include the code):
 DECISION: COMPLETE
 
 Status: AI Implementation Successful
-Payment: $0.05
+Payment: See breakdown below (calculated dynamically based on complexity, quality, and execution time)
 Quality: X/100
 
 ```python
@@ -137,6 +139,8 @@ Quality: X/100
 ```
 
 Brief summary: [1-2 sentences]
+
+Note: Payment is calculated automatically based on task complexity, quality score, execution time, and token usage.
 
 DO NOT call handoff_to_agent. End swarm by not calling any tools."""
         )
@@ -287,6 +291,24 @@ DO NOT call handoff_to_agent. End swarm by not calling any tools."""
                 final_decision = "ESCALATE"
             # Otherwise keep default of COMPLETE
 
+            # Extract complexity and quality score for payment calculation
+            complexity = self._extract_complexity(result)
+            quality_score = self._extract_quality_score(result)
+            code_lines = len(deliverables.get('code', '').split('\n')) if deliverables.get('code') else 0
+
+            # Calculate dynamic payment
+            tokens_used = 0
+            if hasattr(result, 'accumulated_usage') and isinstance(result.accumulated_usage, dict):
+                tokens_used = result.accumulated_usage.get('totalTokens', 0)
+
+            payment_info = calculate_task_payment(
+                complexity=complexity,
+                quality_score=quality_score,
+                execution_time_ms=execution_time_ms,
+                tokens_used=tokens_used,
+                code_lines=code_lines
+            )
+
             # Build response
             response = {
                 "success": success_status and final_decision == "COMPLETE",  # Only success if completed
@@ -299,10 +321,11 @@ DO NOT call handoff_to_agent. End swarm by not calling any tools."""
                 "quality_metrics": quality_metrics,
                 "handoff_count": handoff_count,
                 "execution_time_ms": execution_time_ms,
-                "total_tokens": 0,  # Token counting would need additional implementation
+                "total_tokens": tokens_used,
                 "shared_knowledge": shared_knowledge,
                 "code": deliverables.get('code'),  # Add extracted code to response
-                "final_decision": final_decision
+                "final_decision": final_decision,
+                "payment": payment_info  # Add dynamic payment information
             }
 
             # Pass through additional fields from mock (for testing)
@@ -331,6 +354,53 @@ DO NOT call handoff_to_agent. End swarm by not calling any tools."""
                     "handoff_message": getattr(node, 'handoff_message', None)
                 }
         return knowledge
+
+    def _extract_complexity(self, result) -> str:
+        """Extract task complexity from requirements agent's output"""
+        if not hasattr(result, 'results') or 'requirements_agent' not in result.results:
+            return "unknown"
+
+        req_result = result.results['requirements_agent']
+        if hasattr(req_result, 'result') and hasattr(req_result.result, 'message'):
+            message = req_result.result.message
+            if isinstance(message, dict):
+                content = message.get('content', [])
+                text = ' '.join([item.get('text', '') for item in content if isinstance(item, dict)])
+
+                # Look for complexity indicators in text
+                text_lower = text.lower()
+                if 'complexity": "simple' in text_lower or 'complexity: simple' in text_lower:
+                    return "simple"
+                elif 'complexity": "medium' in text_lower or 'complexity: medium' in text_lower:
+                    return "medium"
+                elif 'complexity": "complex' in text_lower or 'complexity: complex' in text_lower:
+                    return "complex"
+
+        return "unknown"
+
+    def _extract_quality_score(self, result) -> int:
+        """Extract quality score from quality agent's output"""
+        if not hasattr(result, 'results') or 'quality_agent' not in result.results:
+            return 85  # Default
+
+        quality_result = result.results['quality_agent']
+        if hasattr(quality_result, 'result') and hasattr(quality_result.result, 'message'):
+            message = quality_result.result.message
+            if isinstance(message, dict):
+                content = message.get('content', [])
+                text = ' '.join([item.get('text', '') for item in content if isinstance(item, dict)])
+
+                # Look for "Score: X/100" or "score X/100" pattern
+                score_match = re.search(r'[Ss]core:?\s*(\d+)(?:/100)?', text)
+                if score_match:
+                    return int(score_match.group(1))
+
+                # Look for context data with quality_score
+                if hasattr(quality_result, 'context') and isinstance(quality_result.context, dict):
+                    if 'quality_score' in quality_result.context:
+                        return int(quality_result.context['quality_score'])
+
+        return 85  # Default quality score
 
     async def process_task_async(self, task_description: str) -> Dict[str, Any]:
         """
