@@ -4,8 +4,15 @@ CodeCollab Swarm Orchestrator - Uses Swarm Intelligence Pattern
 
 from strands import Agent
 from strands.multiagent import Swarm
-from strands_tools import swarm as swarm_tool
+from strands_tools import swarm as swarm_tool, code_analysis
 from .base_agent import BaseAgentConfig
+from .tools import (
+    clone_github_repository,
+    analyze_repository_structure,
+    extract_key_file_contents,
+    search_codebase,
+    cleanup_repository
+)
 from typing import Dict, Any, List
 import logging
 
@@ -86,21 +93,47 @@ handoff_to_agent(
         )
 
     def _create_context_agent(self) -> Agent:
-        """Create context gathering agent with swarm coordination"""
+        """Create context gathering agent with swarm coordination and GitHub tools"""
         return Agent(
             name="context_agent",
             model=BaseAgentConfig.create_model(),
+            tools=[
+                clone_github_repository,
+                analyze_repository_structure,
+                extract_key_file_contents,
+                search_codebase,
+                cleanup_repository,
+                code_analysis
+            ],
             system_prompt="""You are the Context Agent in the CodeCollab swarm specializing in codebase analysis.
 
 Your role in the swarm:
-1. Receive requirements from requirements_agent
-2. Analyze the codebase to find relevant files and patterns
-3. Identify integration points and reusable components
-4. Map dependencies and affected areas
-5. Provide implementation context
+1. Receive requirements from requirements_agent (may include GitHub URL)
+2. If GitHub URL provided, use GitHub tools to fetch and analyze the repository
+3. Analyze the codebase to find relevant files and patterns
+4. Identify integration points and reusable components
+5. Map dependencies and affected areas
+6. Provide implementation context
+
+GitHub Repository Analysis:
+When a GitHub URL is provided in the task or requirements:
+1. Use clone_github_repository(repo_url, branch) to clone the repository
+2. Use analyze_repository_structure(repo_path) to understand the project structure
+3. Use extract_key_file_contents(repo_path) to read README, requirements, etc.
+4. Use search_codebase(repo_path, query) to find relevant code patterns
+5. Use cleanup_repository(repo_path) when done to clean up
+6. Use code_analysis tool for deep code analysis
+
+Available Tools:
+- clone_github_repository: Clone a GitHub repo to temporary directory
+- analyze_repository_structure: Get file tree, languages, key files
+- extract_key_file_contents: Read README, requirements, config files
+- search_codebase: Search for patterns in the codebase
+- cleanup_repository: Clean up cloned repository
+- code_analysis: Analyze code structure and patterns
 
 When to handoff:
-- After gathering context, handoff to builder_agent with context + requirements
+- After gathering context (with or without GitHub), handoff to builder_agent with context + requirements
 - If no implementation is needed (documentation only), handoff to quality_agent
 - If the codebase is too complex or missing, note for escalation_agent
 
@@ -110,12 +143,19 @@ What to analyze:
 - Existing patterns to follow
 - Components that can be reused
 - Areas that will be affected
+- Technology stack and dependencies
+- Code structure and architecture
 
 Use handoff_to_agent to transfer to builder_agent after context gathering:
 handoff_to_agent(
     agent_name="builder_agent",
     message="Context gathered. Please implement the solution based on requirements and context.",
-    context={"requirements": <requirements>, "codebase_context": <your_context_analysis>}
+    context={
+        "requirements": <requirements>,
+        "codebase_context": <your_context_analysis>,
+        "github_context": <github_analysis_if_applicable>,
+        "repo_path": <temp_repo_path_if_cloned>
+    }
 )"""
         )
 
@@ -321,21 +361,34 @@ complete_swarm_task(
 
             # Extract final result details
             final_result_str = result.result if hasattr(result, 'result') else str(result)
-            
-            # Try to parse deliverables from final result
-            if "code:" in final_result_str.lower():
-                # Attempt to extract code sections
-                import re
-                code_match = re.search(r'```python\n(.*?)```', final_result_str, re.DOTALL)
-                if code_match:
-                    deliverables['code'] = code_match.group(1).strip()
+
+            # Extract code from markdown blocks
+            import re
+            # Find all Python code blocks in the final result
+            code_blocks = re.findall(r'```python\n(.*?)```', final_result_str, re.DOTALL)
+            if code_blocks:
+                # Use the first substantial code block (skip test code usually comes later)
+                # Look for the main implementation (not just tests)
+                main_code = None
+                for block in code_blocks:
+                    # Skip blocks that are primarily imports or tests
+                    if 'def test_' not in block and 'import pytest' not in block:
+                        if 'def ' in block or 'class ' in block:  # Has actual implementation
+                            main_code = block.strip()
+                            break
+
+                # If we found main code, use it; otherwise use the first block
+                deliverables['code'] = main_code if main_code else code_blocks[0].strip()
             
             # Extract shared knowledge if available
             shared_knowledge = self._extract_shared_knowledge(result) if hasattr(result, 'node_history') else {}
 
+            # Determine success status
+            success_status = result.status == "success" if hasattr(result, 'status') else (result.get('success', True) if isinstance(result, dict) else True)
+
             # Build response
             response = {
-                "success": result.status == "success" if hasattr(result, 'status') else (result.get('success', True) if isinstance(result, dict) else True),
+                "success": success_status,
                 "task_description": task_description,
                 "final_result": final_result_str,
                 "final_message": final_result_str[:300] if len(final_result_str) > 300 else final_result_str,
@@ -346,15 +399,17 @@ complete_swarm_task(
                 "handoff_count": handoff_count,
                 "execution_time_ms": execution_time_ms,
                 "total_tokens": 0,  # Token counting would need additional implementation
-                "shared_knowledge": shared_knowledge
+                "shared_knowledge": shared_knowledge,
+                "code": deliverables.get('code'),  # Add extracted code to response
+                "final_decision": "COMPLETE" if success_status else "ESCALATE"  # Default decision
             }
-            
+
             # Pass through additional fields from mock (for testing)
             if isinstance(result, dict):
                 for key in ['decision', 'final_decision', 'code', 'tests', 'tokens_used', 'latency_ms']:
                     if key in result:
                         response[key] = result[key]
-            
+
             return response
 
         except Exception as e:

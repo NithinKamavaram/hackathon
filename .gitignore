@@ -3,6 +3,13 @@ venv/
 env/
 .venv/
 
+# Node modules
+node_modules/
+**/node_modules/
+frontend/node_modules/
+frontend/build/
+frontend/.cache/
+
 # Python
 __pycache__/
 *.py[cod]
@@ -35,3 +42,7 @@ Thumbs.db
 
 # Project specific
 CLAUDE.md
+
+# Documentation files (keep locally, don't commit)
+*.md
+!README.md

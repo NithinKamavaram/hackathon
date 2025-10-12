@@ -2,42 +2,40 @@
 Task complexity analysis tools
 """
 
-from strands import tool
 from typing import Dict, Any, List
 
 
-@tool
 def analyze_task_complexity(description: str, requirements: Dict = None) -> Dict[str, Any]:
     """
     Analyze task complexity to determine effort and escalation needs.
-
+    
     Args:
         description: Task description
         requirements: Structured requirements (if available)
-
+        
     Returns:
         Complexity analysis with recommendations
     """
     # Word count analysis
     word_count = len(description.split())
-
+    
     # Keyword analysis for complexity indicators
     complex_keywords = [
         'architecture', 'refactor', 'migration', 'scalability',
         'distributed', 'microservices', 'security', 'authentication',
         'authorization', 'performance', 'optimization', 'integration'
     ]
-
+    
     simple_keywords = [
         'fix', 'bug', 'typo', 'update', 'change', 'add', 'remove',
         'button', 'text', 'color', 'style'
     ]
-
+    
     description_lower = description.lower()
-
+    
     complex_count = sum(1 for kw in complex_keywords if kw in description_lower)
     simple_count = sum(1 for kw in simple_keywords if kw in description_lower)
-
+    
     # Determine complexity
     if word_count < 30 and simple_count > complex_count:
         complexity = "simple"
@@ -57,7 +55,7 @@ def analyze_task_complexity(description: str, requirements: Dict = None) -> Dict
         ai_payment = "0.10"
         human_payment = "250.00"
         requires_human = complex_count > 3
-
+    
     return {
         "complexity": complexity,
         "word_count": word_count,
@@ -71,15 +69,14 @@ def analyze_task_complexity(description: str, requirements: Dict = None) -> Dict
     }
 
 
-@tool
 def estimate_effort(requirements: Dict, context: Dict = None) -> Dict[str, Any]:
     """
     Estimate effort required for implementation.
-
+    
     Args:
         requirements: Structured requirements
         context: Codebase context
-
+        
     Returns:
         Effort estimation
     """
@@ -87,12 +84,12 @@ def estimate_effort(requirements: Dict, context: Dict = None) -> Dict[str, Any]:
     num_features = requirements.get("feature_count", 1)
     num_tests = requirements.get("test_count", 3)
     has_integration = requirements.get("requires_integration", False)
-
+    
     # Calculate effort points
     effort_points = num_features * 2 + num_tests * 1
     if has_integration:
         effort_points += 5
-
+    
     # Map to time estimate
     if effort_points < 5:
         time_estimate = "15-30 minutes"
@@ -103,7 +100,7 @@ def estimate_effort(requirements: Dict, context: Dict = None) -> Dict[str, Any]:
     else:
         time_estimate = "1-3 hours"
         complexity = "complex"
-
+    
     return {
         "effort_points": effort_points,
         "time_estimate": time_estimate,
