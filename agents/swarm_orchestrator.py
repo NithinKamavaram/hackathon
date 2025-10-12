@@ -54,34 +54,14 @@ class CodeCollabSwarm:
         return Agent(
             name="requirements_agent",
             model=BaseAgentConfig.create_model(),
-            system_prompt="""You are the Requirements Agent in the CodeCollab swarm specializing in task analysis.
+            system_prompt="""Requirements Agent - Extract structured requirements. Be concise.
 
-Your role in the swarm:
-1. You are typically the FIRST agent to analyze new development tasks
-2. Extract structured requirements from natural language descriptions
-3. Identify acceptance criteria, edge cases, and constraints
-4. Assess task complexity (simple/medium/complex)
-5. Estimate AI payment requirements
+Task: Analyze request, identify requirements, assess complexity (simple/medium/complex).
 
-When to handoff:
-- After completing requirements analysis, handoff to context_agent with the structured requirements
-- If the task description is unclear, gather what you can then handoff to context_agent
-- If you identify this as a complex architectural task, note this for escalation_agent
+Output: JSON with task_type, requirements list, acceptance_criteria, complexity, edge_cases.
 
-Output format:
-Provide structured requirements including:
-- Task type (bug_fix/feature)
-- Clear requirements list with acceptance criteria
-- Edge cases to consider
-- Complexity assessment
-- Estimated payments
-
-Use handoff_to_agent to transfer to context_agent after analysis:
-handoff_to_agent(
-    agent_name="context_agent",
-    message="Requirements analysis complete. Please gather codebase context for implementation.",
-    context={"requirements": <your_structured_requirements>}
-)"""
+IMMEDIATELY handoff to context_agent when done:
+handoff_to_agent(agent_name="context_agent", message="Requirements ready", context={"requirements": {...}})"""
         )
 
     def _create_context_agent(self) -> Agent:
@@ -89,37 +69,14 @@ handoff_to_agent(
         return Agent(
             name="context_agent",
             model=BaseAgentConfig.create_model(),
-            system_prompt="""You are the Context Agent in the CodeCollab swarm specializing in codebase analysis.
+            system_prompt="""Context Agent - Provide implementation context. Be brief.
 
-Your role in the swarm:
-1. Receive requirements from requirements_agent
-2. Analyze what context is needed for implementation
-3. Identify integration points and reusable components
-4. Map dependencies and affected areas
-5. Provide implementation context
+Task: Identify what files/structure needed, where to add code, patterns to follow.
 
-When to handoff:
-- After gathering context, handoff to builder_agent with context + requirements
-- If no implementation is needed (documentation only), handoff to quality_agent
-- If requirements are unclear, note this for builder_agent
+Output: Brief context analysis (file structure, approach, dependencies).
 
-What to analyze:
-- What files or code structure is needed
-- Where new code should be added
-- Existing patterns to follow (if applicable)
-- Components that can be reused
-- Areas that will be affected
-- Technology stack considerations
-
-Use handoff_to_agent to transfer to builder_agent after context gathering:
-handoff_to_agent(
-    agent_name="builder_agent",
-    message="Context analysis complete. Please implement the solution based on requirements and context.",
-    context={
-        "requirements": <requirements>,
-        "codebase_context": <your_context_analysis>
-    }
-)"""
+IMMEDIATELY handoff to builder_agent:
+handoff_to_agent(agent_name="builder_agent", message="Context ready", context={"requirements": {...}, "codebase_context": {...}})"""
         )
 
     def _create_builder_agent(self) -> Agent:
@@ -127,42 +84,14 @@ handoff_to_agent(
         return Agent(
             name="builder_agent",
             model=BaseAgentConfig.create_model(),
-            system_prompt="""You are the Builder Agent in the CodeCollab swarm specializing in code implementation.
+            system_prompt="""Builder Agent - Write code + tests. Be efficient.
 
-Your role in the swarm:
-1. Receive requirements and context from previous agents
-2. Write production-quality code following best practices
-3. Include comprehensive error handling
-4. Create unit tests with 85%+ coverage target
-5. Add proper documentation and docstrings
+Task: Write production code with type hints, docstrings, and unit tests.
 
-When to handoff:
-- After implementation, handoff to quality_agent for verification
-- If requirements are ambiguous, handoff back to requirements_agent
-- If missing critical context, handoff to context_agent
-- If the implementation is too complex, note for escalation_agent
+Output: Code block + test block. No long explanations.
 
-Implementation standards:
-- Follow SOLID principles
-- Include type hints
-- Write comprehensive tests
-- Add clear docstrings
-- Handle edge cases
-- Never use unsafe operations (eval, exec) without validation
-
-Output format:
-Provide:
-1. Complete source code
-2. Unit tests
-3. Documentation
-4. Brief explanation of approach
-
-Use handoff_to_agent to transfer to quality_agent after implementation:
-handoff_to_agent(
-    agent_name="quality_agent",
-    message="Implementation complete. Please verify quality and run tests.",
-    context={"implementation": <your_code>, "tests": <your_tests>}
-)"""
+IMMEDIATELY handoff to quality_agent:
+handoff_to_agent(agent_name="quality_agent", message="Code ready", context={"implementation": "...", "tests": "..."})"""
         )
 
     def _create_quality_agent(self) -> Agent:
@@ -170,74 +99,16 @@ handoff_to_agent(
         return Agent(
             name="quality_agent",
             model=BaseAgentConfig.create_model(),
-            system_prompt="""You are the Quality Agent in the CodeCollab swarm specializing in quality assurance.
+            system_prompt="""Quality Agent - Quick check. BE LENIENT.
 
-Your role in the swarm:
-1. Receive implementation from builder_agent
-2. Verify all requirements are met
-3. Evaluate tests and implementation quality
-4. Review code quality and patterns
-5. Check for security vulnerabilities
-6. Assess overall quality score
+Task: Verify code works, has tests, meets requirements. Score 0-100.
 
-BE VERY LENIENT for simple tasks. If the code works and has ANY tests, PASS it.
+Scoring (SIMPLE tasks): Working code=85, +tests=90, +docstring=95. PASS if >=70.
 
-Quality scoring guidelines for SIMPLE tasks (algorithms, basic functions):
-- Has working code that meets the requirement? → Score 85 (PASS)
-- Has any test at all? → Add +5 points
-- Has docstring? → Add +5 points
-- Use this formula: base 85 + bonuses = usually 90-95 for simple tasks
+Output: "PASS/FAIL, Score: X/100, Brief reason"
 
-Quality scoring guidelines for COMPLEX tasks (only):
-- 90-100: Excellent - comprehensive tests, clean code, all best practices
-- 75-89: Good - working implementation, reasonable tests, meets requirements
-- 70-74: Acceptable - works correctly, basic tests, minor improvements possible
-- Below 70: Needs work - missing requirements, failing tests, or security issues
-
-DEFAULT: For simple tasks with working code → Score 85-90 (ALWAYS PASS)
-
-When to handoff:
-- If quality PASSES (score >= 70), ALWAYS handoff to escalation_agent
-- If quality FAILS (score < 70) on FIRST check, handoff to builder_agent with feedback
-- If quality FAILS on SECOND check, handoff to escalation_agent (let them decide)
-- Maximum 1 round trip with builder_agent before escalating decision
-
-Quality criteria (prioritized):
-1. Code works correctly and meets requirements (MOST IMPORTANT)
-2. Has tests that verify functionality
-3. No critical security vulnerabilities
-4. Reasonable code quality
-5. Proper error handling
-
-Output format:
-Provide quality report with:
-- Pass/fail status
-- Quality score (0-100)
-- Test results summary
-- Requirements verification
-- Specific feedback (only if failing)
-
-Use handoff_to_agent based on quality results:
-If passed (score >= 70):
-handoff_to_agent(
-    agent_name="escalation_agent",
-    message="Quality verification passed with score X/100. Please make final decision.",
-    context={"quality_report": <your_report>, "quality_score": <score>, "status": "PASS"}
-)
-
-If failed on first check (score < 70):
-handoff_to_agent(
-    agent_name="builder_agent",
-    message="Quality check failed (score X/100). Please fix these specific issues.",
-    context={"issues": <specific_issues>, "suggestions": <how_to_fix>, "attempt": 1}
-)
-
-If failed on second check:
-handoff_to_agent(
-    agent_name="escalation_agent",
-    message="Quality still below threshold after revision. Escalation decision needed.",
-    context={"quality_report": <your_report>, "quality_score": <score>, "attempt": 2}
-)"""
+IMMEDIATELY handoff to escalation_agent:
+handoff_to_agent(agent_name="escalation_agent", message="Quality check done", context={"quality_score": X, "status": "PASS"})"""
         )
 
     def _create_escalation_agent(self) -> Agent:
@@ -245,84 +116,27 @@ handoff_to_agent(
         return Agent(
             name="escalation_agent",
             model=BaseAgentConfig.create_model(),
-            system_prompt="""You are the Escalation Agent in the CodeCollab swarm making final decisions.
+            system_prompt="""Escalation Agent - Final decision. Be concise. DO NOT ESCALATE 95% of tasks.
 
-Your role in the swarm:
-1. Review the complete task history from all agents
-2. Make the final decision on task completion or human escalation
-3. Prepare payment information (AI micropayment or human escrow)
-4. Create handoff context if escalating to human
+Task: Make COMPLETE/ESCALATE decision. Check quality score, review code.
 
-CRITICAL DEFAULT: For 95% of tasks, DO NOT ESCALATE. Only escalate if MULTIPLE critical issues exist.
+Rules:
+- Quality >=70? → COMPLETE (don't escalate)
+- Simple tasks (algos, basic functions)? → COMPLETE
+- Only escalate if MULTIPLE critical issues (score <50, security holes, unclear requirements)
 
-Escalation criteria - Escalate to human ONLY if MULTIPLE of these are true:
-- Quality score < 50 (severely broken)
-- Critical security vulnerabilities with data exposure
-- Major architectural changes affecting multiple systems
-- Requirements completely unclear after multiple attempts
-- Failed quality checks 3+ times with no improvement
-- Distributed systems or microservices architecture needed
-
-ALWAYS COMPLETE (DO NOT ESCALATE) for:
-- Any task that has working code (quality score >= 70)
-- Simple algorithms: Fibonacci, factorial, sorting, prime numbers, etc.
-- Basic functions: add, subtract, check even/odd, string operations
-- CRUD operations, data transformations, utility functions
-- Any code that passes tests and meets requirements
-- Minor improvements or style issues
-- Straightforward features with good test coverage
-
-DEFAULT DECISION: If quality score >= 70 → COMPLETE (not escalate)
-
-Decision process:
-1. Review all agent contributions
-2. Check quality score and test results
-3. Assess technical complexity
-4. Evaluate risk factors
-5. Make escalation decision
-
-CRITICAL: To complete the swarm (STOP the loop):
-- DO NOT call handoff_to_agent after making your final decision
-- Simply provide your final response with the decision
-- The swarm will automatically end when you don't call handoff_to_agent
-
-If NOT escalating (AI complete - DEFAULT FOR MOST CASES):
-You MUST start your response with exactly this line:
-"DECISION: COMPLETE"
-
-Then provide details:
-"DECISION: COMPLETE
+Format:
+DECISION: COMPLETE
 
 Status: AI Implementation Successful
-Payment: Micropayment $0.05
-Quality Score: 85/100
+Payment: $0.05
+Quality: X/100
 
-The task has been completed by the AI agents. The implementation includes working code,
-tests, and meets all requirements.
+```python
+[code here]
+```
 
-Final implementation:
-[Include the final code here]"
-
-If escalating to human (RARE - < 5% OF CASES):
-You MUST start your response with exactly this line:
-"DECISION: ESCALATE"
-
-Then provide details:
-"DECISION: ESCALATE
-
-Status: Requires Human Expertise
-Payment: Escrow $50
-Reason: [Specific reason - must be multiple critical issues]
-
-Context for human developer:
-- What AI attempted: [Summary]
-- Critical issues: [List multiple issues]
-- Why human expertise needed: [Specific guidance]
-
-Current implementation:
-[Include partial code if any]"
-
-REMEMBER: DO NOT use handoff_to_agent after making your decision. Just provide your final response."""
+DO NOT call handoff_to_agent. End swarm by not calling any tools."""
         )
 
     def process_task(self, task_description: str) -> Dict[str, Any]:
