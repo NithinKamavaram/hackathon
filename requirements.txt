@@ -3,9 +3,9 @@
 
 # === CORE DEPENDENCIES ===
 
-# Strands Multi-Agent Framework
-strands-agents==1.12.0
-strands-agents-tools==0.2.11
+# Strands Multi-Agent Framework (AWS SDK - always use latest)
+strands-agents
+strands-agents-tools
 
 # AWS Bedrock (for Claude Sonnet 4)
 boto3>=1.40.0
