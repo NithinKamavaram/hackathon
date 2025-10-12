@@ -374,8 +374,40 @@ REMEMBER: DO NOT use handoff_to_agent after making your decision. Just provide y
                     
                     agent_outputs[agent_name] = agent_output
 
-            # Extract final result details
-            final_result_str = result.result if hasattr(result, 'result') else str(result)
+            # Extract final result text from escalation agent (last agent in sequence)
+            final_result_str = ""
+
+            # Try accessing through results dictionary first
+            if hasattr(result, 'results') and 'escalation_agent' in result.results:
+                escalation_result = result.results['escalation_agent']
+                if hasattr(escalation_result, 'result'):
+                    agent_result = escalation_result.result
+                    # Extract clean text from agent message
+                    if hasattr(agent_result, 'message') and isinstance(agent_result.message, dict):
+                        content = agent_result.message.get('content', [])
+                        # Content is a list of items, each with 'text' field
+                        text_parts = []
+                        for item in content:
+                            if isinstance(item, dict) and 'text' in item:
+                                text_parts.append(item['text'])
+                        final_result_str = '\n'.join(text_parts) if text_parts else ""
+
+            # Fallback: try node_history if results dict didn't work
+            if not final_result_str and hasattr(result, 'node_history') and result.node_history:
+                last_node = result.node_history[-1]
+                if hasattr(last_node, 'result') and hasattr(last_node.result, 'result'):
+                    agent_result = last_node.result.result
+                    if hasattr(agent_result, 'message') and isinstance(agent_result.message, dict):
+                        content = agent_result.message.get('content', [])
+                        text_parts = []
+                        for item in content:
+                            if isinstance(item, dict) and 'text' in item:
+                                text_parts.append(item['text'])
+                        final_result_str = '\n'.join(text_parts) if text_parts else ""
+
+            # Final fallback to string representation if extraction failed
+            if not final_result_str:
+                final_result_str = str(result)[:1000]  # Truncate to avoid massive output
 
             # Extract code from markdown blocks
             import re
