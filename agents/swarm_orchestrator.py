@@ -125,7 +125,7 @@ Rules:
 - Simple tasks (algos, basic functions)? → COMPLETE
 - Only escalate if MULTIPLE critical issues (score <50, security holes, unclear requirements)
 
-Format:
+REQUIRED Format (MUST include the code):
 DECISION: COMPLETE
 
 Status: AI Implementation Successful
@@ -133,8 +133,10 @@ Payment: $0.05
 Quality: X/100
 
 ```python
-[code here]
+[COPY THE FULL CODE FROM BUILDER AGENT HERE - THIS IS MANDATORY]
 ```
+
+Brief summary: [1-2 sentences]
 
 DO NOT call handoff_to_agent. End swarm by not calling any tools."""
         )
@@ -223,7 +225,7 @@ DO NOT call handoff_to_agent. End swarm by not calling any tools."""
             if not final_result_str:
                 final_result_str = str(result)[:1000]  # Truncate to avoid massive output
 
-            # Extract code from markdown blocks
+            # Extract code from markdown blocks in escalation agent's output
             import re
             # Find all Python code blocks in the final result
             code_blocks = re.findall(r'```python\n(.*?)```', final_result_str, re.DOTALL)
@@ -240,6 +242,33 @@ DO NOT call handoff_to_agent. End swarm by not calling any tools."""
 
                 # If we found main code, use it; otherwise use the first block
                 deliverables['code'] = main_code if main_code else code_blocks[0].strip()
+
+            # Fallback: Extract code from builder_agent's output if not found in escalation agent
+            if not deliverables.get('code') and hasattr(result, 'results') and 'builder_agent' in result.results:
+                builder_result = result.results['builder_agent']
+                if hasattr(builder_result, 'result') and hasattr(builder_result.result, 'message'):
+                    builder_message = builder_result.result.message
+                    if isinstance(builder_message, dict):
+                        content = builder_message.get('content', [])
+                        # Extract text and look for code blocks
+                        builder_text = []
+                        for item in content:
+                            if isinstance(item, dict) and 'text' in item:
+                                builder_text.append(item['text'])
+                        builder_str = '\n'.join(builder_text)
+
+                        # Extract code blocks from builder's message
+                        builder_code_blocks = re.findall(r'```python\n(.*?)```', builder_str, re.DOTALL)
+                        if builder_code_blocks:
+                            # Find main implementation code (not tests)
+                            for block in builder_code_blocks:
+                                if 'def test_' not in block and 'import unittest' not in block:
+                                    if 'def ' in block or 'class ' in block:
+                                        deliverables['code'] = block.strip()
+                                        break
+                            # If still not found, use first non-test block
+                            if not deliverables.get('code'):
+                                deliverables['code'] = builder_code_blocks[0].strip()
             
             # Extract shared knowledge if available
             shared_knowledge = self._extract_shared_knowledge(result) if hasattr(result, 'node_history') else {}
