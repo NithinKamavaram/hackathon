@@ -43,8 +43,8 @@ class CodeCollabSwarm:
             self.agents,  # Pass agents as first positional argument
             max_handoffs=10,  # Reduced from 20
             max_iterations=10,  # Reduced from 20
-            execution_timeout=120.0,  # 2 minutes (reduced from 15 min)
-            node_timeout=30.0,  # 30 seconds per agent (reduced from 5 min)
+            execution_timeout=180.0,  # 3 minutes for complex tasks
+            node_timeout=90.0,  # 90 seconds per agent for complex implementations
             repetitive_handoff_detection_window=5,  # Reduced from 8
             repetitive_handoff_min_unique_agents=3
         )
