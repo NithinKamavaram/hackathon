@@ -3,6 +3,9 @@
 **AI-Powered Development Tools with Gasless SBC Micropayments on Base**
  
 Built for **Hack Midwest 2025** | [Demo Video](#) | [Architecture Docs](./COMPLETE_ARCHITECTURE_OVERVIEW.md)
+
+<img width="800" height="600" alt="svgviewer-png-output" src="https://github.com/user-attachments/assets/4ac06f97-0bfa-460f-8fcc-2c317285e3f4" />
+
  
 ---
 ## For quick demo on project flow please refer below URL
